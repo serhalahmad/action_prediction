@@ -1,6 +1,7 @@
 import cv2
 import dlib
 from math import hypot
+import numpy as np
 
 cap = cv2.VideoCapture(0)
 
@@ -33,12 +34,31 @@ while True:
     for face in faces:
         landmarks = predictor(gray, face)
         
-        right_eye_ratio = get_blinking_ratio([36, 37, 38, 39, 40, 41], landmarks)
-        left_eye_ratio = get_blinking_ratio([42, 43, 44, 45, 46, 47], landmarks)
-        if left_eye_ratio > 5:
-            cv2.putText(frame, "LEFT", (50, 150), font, 3, (255, 0, 0))
-        if right_eye_ratio > 5:
-            cv2.putText(frame, "RIGHT", (100, 300), font, 3, (255, 0, 0))
+        # Blinking Detection
+        # right_eye_ratio = get_blinking_ratio([36, 37, 38, 39, 40, 41], landmarks)
+        # left_eye_ratio = get_blinking_ratio([42, 43, 44, 45, 46, 47], landmarks)
+        # if left_eye_ratio > 5:
+        #     cv2.putText(frame, "LEFT", (50, 150), font, 3, (255, 0, 0))
+        # if right_eye_ratio > 5:
+        #     cv2.putText(frame, "RIGHT", (100, 300), font, 3, (255, 0, 0))
+        
+        # Gaze Detection
+        right_eye_region = np.array([(landmarks.part(36).x, landmarks.part(36).y),
+                                    (landmarks.part(37).x, landmarks.part(37).y),
+                                    (landmarks.part(38).x, landmarks.part(38).y),
+                                    (landmarks.part(39).x, landmarks.part(39).y),
+                                    (landmarks.part(40).x, landmarks.part(40).y),
+                                    (landmarks.part(41).x, landmarks.part(41).y)], np.int32) 
+        # cv2.polylines(frame, [left_eye_region], True, (0, 0, 255), 2)
+        min_x = np.min(right_eye_region[:, 0])
+        max_x = np.max(right_eye_region[:, 0])
+        min_y = np.min(right_eye_region[:, 1])
+        max_y = np.max(right_eye_region[:, 1])
+
+        right_eye = frame[min_y: max_y, min_x: max_x]
+        right_eye = cv2.resize(right_eye, None, fx=5, fy=5)
+
+        cv2.imshow("Eye", right_eye)
 
     cv2.imshow('Camera Feed', frame)
 
