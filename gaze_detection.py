@@ -3,6 +3,9 @@ import dlib
 from math import hypot
 import numpy as np
 
+# Hyper parameters
+GAZE_THRESHOLD = 70
+
 cap = cv2.VideoCapture(0)
 
 detector = dlib.get_frontal_face_detector()
@@ -49,16 +52,23 @@ while True:
                                     (landmarks.part(39).x, landmarks.part(39).y),
                                     (landmarks.part(40).x, landmarks.part(40).y),
                                     (landmarks.part(41).x, landmarks.part(41).y)], np.int32) 
-        # cv2.polylines(frame, [left_eye_region], True, (0, 0, 255), 2)
+        # cv2.polylines(frame, [right_eye_region], True, (0, 0, 255), 2)
+        height, width, _ = frame.shape
+        mask = np.zeros((height, width), np.uint8)
+        cv2.polylines(mask, [right_eye_region], True, 255, 2)
+        cv2.fillPoly(mask, [right_eye_region], 255)
+        right_eye = cv2.bitwise_and(gray, gray, mask=mask)
+
         min_x = np.min(right_eye_region[:, 0])
         max_x = np.max(right_eye_region[:, 0])
         min_y = np.min(right_eye_region[:, 1])
         max_y = np.max(right_eye_region[:, 1])
 
-        right_eye = frame[min_y: max_y, min_x: max_x]
-        right_eye = cv2.resize(right_eye, None, fx=5, fy=5)
-
-        cv2.imshow("Eye", right_eye)
+        gray_eye = right_eye[min_y: max_y, min_x: max_x]
+        _, threshold_eye = cv2.threshold(gray_eye, GAZE_THRESHOLD, 255, cv2.THRESH_BINARY)
+        threshold_eye = cv2.resize(threshold_eye, None, fx=5, fy=5)
+        eye = cv2.resize(gray_eye, None, fx=5, fy=5)
+        cv2.imshow("Threshold", threshold_eye)
 
     cv2.imshow('Camera Feed', frame)
 
