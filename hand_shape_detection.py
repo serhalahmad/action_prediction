@@ -16,7 +16,7 @@ import numpy as np
 
 cap = cv2.VideoCapture(0)
 
-with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5) as hands:
+with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands=1) as hands:
     while cap.isOpened():
         ret, frame = cap.read()
 
