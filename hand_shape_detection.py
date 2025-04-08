@@ -5,8 +5,8 @@ import cv2
 import numpy as np
 
 # Hyper parameters
-SMALL_GRIP_THRESHOLD = 0.09
-LARGE_GRIP_THRESHOLD = 0.15
+SMALL_GRIP_THRESHOLD = 0.18
+LARGE_GRIP_THRESHOLD = 0.2
 
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
@@ -40,28 +40,28 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                 
                 # Extract fingertips
                 thumb_tip = hand.landmark[4]
-                index_tip = hand.landmark[8]
-                middle_tip = hand.landmark[12]
-
+                tip_ids = [8, 12, 16, 20] # tip landmarks of index, middle, ring, and pinky fingers
+                distances = []
                 # Compute distances
-                thumb_index_dist = pseudo_3d_distance(thumb_tip, index_tip)
-                thumb_middle_dist = pseudo_3d_distance(thumb_tip, middle_tip)
-
+                for i in tip_ids:
+                    fingertip = hand.landmark[i]
+                    dist = pseudo_3d_distance(thumb_tip, fingertip)
+                    distances.append(dist)
                 # Average grip distance
-                avg_grip = (thumb_index_dist + thumb_middle_dist) / 2
+                avg_dist = np.mean(distances)
 
                 # Grip logic (you can adjust threshold based on your setup)
-                if avg_grip < SMALL_GRIP_THRESHOLD:
-                    grip = "Pinch"
-                elif avg_grip > LARGE_GRIP_THRESHOLD:
-                    grip = "Power"
+                if avg_dist < SMALL_GRIP_THRESHOLD:
+                    grip = "Small"
+                elif avg_dist > LARGE_GRIP_THRESHOLD:
+                    grip = "Large"
                 else:
                     grip = "Uncertain"
 
                 # Display info
-                cv2.putText(image, f"Grip: {grip}", (10, 40),
+                cv2.putText(image, f"Trgt Obj: {grip}", (10, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.putText(image, f"Avg Dist: {avg_grip:.3f}", (10, 80),
+                cv2.putText(image, f"Avg Dist: {avg_dist:.3f}", (10, 80),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
 
         cv2.imshow("Hand Tracking", image)
