@@ -27,8 +27,8 @@ cpd_closeness = TabularCPD('Hand3DCloseness', 2, [[0.5], [0.5]], state_names=sta
 
 # 4. Define full CPD for TargetObject (manually filled)
 cpd_values = [
-    [0.99, 0.99, 0.7, 0.95, 0.15, 0.95, 0.05, 0.95, 0.95, 0.05, 0.15, 0.05, 0.95, 0.05, 0.01, 0.01],  # Probabilities for "small"
-    [0.01, 0.01, 0.3, 0.05, 0.85, 0.05, 0.95, 0.05, 0.05, 0.95, 0.85, 0.95, 0.05, 0.95, 0.99, 0.99]   # Probabilities for "large"
+    [0.99, 0.99, 0.3, 0.95, 0.85, 0.95, 0.05, 0.95, 0.95, 0.05, 0.15, 0.05, 0.95, 0.05, 0.01, 0.01],  # Probabilities for "small"
+    [0.01, 0.01, 0.7, 0.05, 0.15, 0.05, 0.95, 0.05, 0.05, 0.95, 0.85, 0.95, 0.05, 0.95, 0.99, 0.99]   # Probabilities for "large"
 ]
 
 # Create the full CPD for TargetObject

@@ -5,6 +5,9 @@ import cv2
 import dlib
 from math import hypot
 import numpy as np
+from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.factors.discrete import TabularCPD
+from pgmpy.inference import VariableElimination
 
 # Hyper parameters
 SMALL_GRIP_THRESHOLD = 0.18
@@ -16,6 +19,55 @@ HIGH_CENTER_THRESHOLD = 1.5 # Threshold of the ratio to detect if we are looking
 # Example: (x, y)
 small_object_center = (200, 300)
 large_object_center = (400, 250)
+
+### Initializing the Bayesian Network (BN)
+# 1. Define the model structure
+model = DiscreteBayesianNetwork([
+    ('GazeDirection', 'TargetObject'),
+    ('GripShape', 'TargetObject'),
+    ('HandProximity', 'TargetObject'),
+    ('Hand3DCloseness', 'TargetObject')
+])
+
+# 2. Define state names for all nodes
+state_names = {
+    'GazeDirection': ['towards_small', 'towards_large'],
+    'GripShape': ['small', 'large'],
+    'HandProximity': ['near_small', 'near_large'],
+    'Hand3DCloseness': ['close', 'far'],
+    'TargetObject': ['small', 'large']
+}
+
+# 3. Define CPDs for input nodes (uniform for now)
+cpd_gaze = TabularCPD('GazeDirection', 2, [[0.5], [0.5]], state_names=state_names)
+cpd_grip = TabularCPD('GripShape', 2, [[0.5], [0.5]], state_names=state_names)
+cpd_proximity = TabularCPD('HandProximity', 2, [[0.5], [0.5]], state_names=state_names)
+cpd_closeness = TabularCPD('Hand3DCloseness', 2, [[0.5], [0.5]], state_names=state_names)  # Now only close and far
+
+# 4. Define full CPD for TargetObject (manually filled)
+cpd_values = [
+    [0.99, 0.99, 0.3, 0.95, 0.85, 0.95, 0.05, 0.95, 0.95, 0.05, 0.15, 0.05, 0.95, 0.05, 0.01, 0.01],  # Probabilities for "small"
+    [0.01, 0.01, 0.7, 0.05, 0.15, 0.05, 0.95, 0.05, 0.05, 0.95, 0.85, 0.95, 0.05, 0.95, 0.99, 0.99]   # Probabilities for "large"
+]
+
+# Create the full CPD for TargetObject
+cpd_target = TabularCPD(
+    variable='TargetObject', variable_card=2,
+    values=cpd_values,
+    evidence=['GazeDirection', 'GripShape', 'HandProximity', 'Hand3DCloseness'],
+    evidence_card=[2, 2, 2, 2],
+    state_names=state_names
+)
+
+# 5. Add all CPDs to the model
+model.add_cpds(cpd_gaze, cpd_grip, cpd_proximity, cpd_closeness, cpd_target)
+
+# 6. Validate the model
+assert model.check_model()
+
+# 7. Run inference
+infer = VariableElimination(model)
+### END of setting up the BN 
 
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
@@ -69,6 +121,11 @@ def get_gaze_ratio(gray_image, eye_points, facial_landmarks):
         return -1
     return gaze_ratio
 
+grip_shape = "uncertain"
+gaze_direction = "uncertain"
+hand_proximity = "uncertain"
+hand_closeness = "uncertain"
+
 with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands=1) as hands:
     while cap.isOpened():
         ret, frame = cap.read()
@@ -109,14 +166,14 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
 
                 # Grip logic (you can adjust threshold based on your setup)
                 if avg_dist < SMALL_GRIP_THRESHOLD:
-                    grip = "Small"
+                    grip_shape = "small"
                 elif avg_dist > LARGE_GRIP_THRESHOLD:
-                    grip = "Large"
+                    grip_shape = "large"
                 else:
-                    grip = "Uncertain"
+                    grip_shape = "uncertain"
 
                 # Display info
-                cv2.putText(image, f"Trgt Obj: {grip}", (10, 40),
+                cv2.putText(image, f"Trgt Obj: {grip_shape}", (10, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 cv2.putText(image, f"Avg Dist: {avg_dist:.3f}", (10, 80),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
@@ -135,11 +192,11 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                 dist_small = euclidean_dist(hand_center, small_object_center)
                 dist_large = euclidean_dist(hand_center, large_object_center)
 
-                # Decide which is closer
-                closer = "Small Object" if dist_small < dist_large else "Large Object"
+                # Decide the hand proximity
+                hand_proximity = "near_small" if dist_small < dist_large else "near_large"
 
                 # Display result
-                cv2.putText(image, f"Target: {closer}", (10, 120), 
+                cv2.putText(image, f"Target: {hand_proximity}", (10, 120), 
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         faces = detector(gray)
@@ -152,15 +209,28 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
             gaze_ratio = (gaze_ratio_right_eye + gaze_ratio_left_eye) / 2
             
             if gaze_ratio <= LOW_CENTER_THRESHOLD:
-                # cv2.putText(image, "RIGHT", (50, 100), font, 2, (0, 0, 255), 3)
+                gaze_direction = "towards_large"
                 color_frame[:] = (0, 0, 255) # if the frame is red then we are looking right
             elif LOW_CENTER_THRESHOLD < gaze_ratio < HIGH_CENTER_THRESHOLD: 
-                # cv2.putText(image, "CENTER", (50, 100), font, 2, (0, 0, 255), 3)
-                pass # if the frame is black then we are looking in the middle (center)
+                gaze_direction = "uncertain"
             else: 
-                # cv2.putText(image, "LEFT", (50, 100), font, 2, (0, 0, 255), 3)
+                gaze_direction = "towards_small"
                 color_frame[:] = (255, 0, 0) # if the frame is blue then we are looking left
 
+        # Predict the target object using BN
+        query = infer.query(
+            variables=['TargetObject'],
+            evidence={
+                'GazeDirection': gaze_direction if gaze_direction != "uncertain" else "towards_small",
+                'GripShape': grip_shape if grip_shape != "uncertain" else "small",
+                'HandProximity': hand_proximity if hand_proximity != "uncertain" else "near_small",
+                'Hand3DCloseness': hand_closeness if hand_closeness != "uncertain" else "close"
+            }
+        )
+        cv2.putText(image, f"P = {query.values[0]}", (200, 250), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(image, f"P = {query.values[1]}", (400, 250), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         cv2.imshow("Hand Tracking", image)
         cv2.imshow('Color Frame', color_frame)
