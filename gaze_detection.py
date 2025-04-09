@@ -31,8 +31,8 @@ def get_blinking_ratio(eye_points, facial_landmarks):
     
     return hor_line_length / ver_line_length
 
-def get_gaze_ratio(eye_points, facial_landmarks):
-    eye_region = np.array([(landmarks.part(eye_points[0]).x, landmarks.part(eye_points[0]).y),
+def get_gaze_ratio(gray_image, eye_points, facial_landmarks):
+    eye_region = np.array([(facial_landmarks.part(eye_points[0]).x, facial_landmarks.part(eye_points[0]).y),
                                 (facial_landmarks.part(eye_points[1]).x, facial_landmarks.part(eye_points[1]).y),
                                 (facial_landmarks.part(eye_points[2]).x, facial_landmarks.part(eye_points[2]).y),
                                 (facial_landmarks.part(eye_points[3]).x, facial_landmarks.part(eye_points[3]).y),
@@ -43,7 +43,7 @@ def get_gaze_ratio(eye_points, facial_landmarks):
     mask = np.zeros((height, width), np.uint8)
     cv2.polylines(mask, [eye_region], True, 255, 2)
     cv2.fillPoly(mask, [eye_region], 255)
-    eye = cv2.bitwise_and(gray, gray, mask=mask)
+    eye = cv2.bitwise_and(gray_image, gray_image, mask=mask)
 
     min_x = np.min(eye_region[:, 0])
     max_x = np.max(eye_region[:, 0])
@@ -74,8 +74,8 @@ while True:
         landmarks = predictor(gray, face)
 
         # Gaze Detection
-        gaze_ratio_right_eye = get_gaze_ratio([36, 37, 38, 39, 40, 41], landmarks)
-        gaze_ratio_left_eye = get_gaze_ratio([42, 43, 44, 45, 46, 47], landmarks)
+        gaze_ratio_right_eye = get_gaze_ratio(gray, [36, 37, 38, 39, 40, 41], landmarks)
+        gaze_ratio_left_eye = get_gaze_ratio(gray, [42, 43, 44, 45, 46, 47], landmarks)
         gaze_ratio = (gaze_ratio_right_eye + gaze_ratio_left_eye) / 2
         
         if gaze_ratio <= LOW_CENTER_THRESHOLD:
