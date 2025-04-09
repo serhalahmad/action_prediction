@@ -152,12 +152,13 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
             gaze_ratio = (gaze_ratio_right_eye + gaze_ratio_left_eye) / 2
             
             if gaze_ratio <= LOW_CENTER_THRESHOLD:
-                cv2.putText(image, "RIGHT", (50, 100), font, 2, (0, 0, 255), 3)
+                # cv2.putText(image, "RIGHT", (50, 100), font, 2, (0, 0, 255), 3)
                 color_frame[:] = (0, 0, 255) # if the frame is red then we are looking right
             elif LOW_CENTER_THRESHOLD < gaze_ratio < HIGH_CENTER_THRESHOLD: 
-                cv2.putText(image, "CENTER", (50, 100), font, 2, (0, 0, 255), 3)
+                # cv2.putText(image, "CENTER", (50, 100), font, 2, (0, 0, 255), 3)
+                pass # if the frame is black then we are looking in the middle (center)
             else: 
-                cv2.putText(image, "LEFT", (50, 100), font, 2, (0, 0, 255), 3)
+                # cv2.putText(image, "LEFT", (50, 100), font, 2, (0, 0, 255), 3)
                 color_frame[:] = (255, 0, 0) # if the frame is blue then we are looking left
 
 
