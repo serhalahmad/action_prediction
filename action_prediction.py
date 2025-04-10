@@ -10,16 +10,12 @@ from pgmpy.factors.discrete import TabularCPD
 from pgmpy.inference import VariableElimination
 
 # Hyper parameters
-SMALL_GRIP_THRESHOLD = 0.18
-LARGE_GRIP_THRESHOLD = 0.2
+SMALL_GRIP_THRESHOLD = 0.15
+LARGE_GRIP_THRESHOLD = 0.16
 GAZE_THRESHOLD = 70 # Threshold to detect the gaze (related to the eye color)
-LOW_CENTER_THRESHOLD = 0.5 # Threshold of the ratio to detect if we are looking right or left
-HIGH_CENTER_THRESHOLD = 1.5 # Threshold of the ratio to detect if we are looking right or left
-CLOSENESS_THRESHOLD = 50 # Threshold for the hand_closeness node to consider it close or far
-# Hardcoded object centers (in pixel coordinates)
-# Example: (x, y)
-small_object_center = (200, 300)
-large_object_center = (400, 250)
+LOW_CENTER_THRESHOLD = 0.4 # Threshold of the ratio to detect if we are looking right or left
+HIGH_CENTER_THRESHOLD = 0.41 # Threshold of the ratio to detect if we are looking right or left (decrease it to give more space for small)
+CLOSENESS_THRESHOLD = 170 # Threshold for the hand_closeness node to consider it close or far
 
 ### Initializing the Bayesian Network (BN)
 # 1. Define the model structure
@@ -38,6 +34,11 @@ state_names = {
     'Hand3DCloseness': ['close', 'far'],
     'TargetObject': ['small', 'large']
 }
+
+# Hardcoded object centers (in pixel coordinates)
+# Example: (x, y)
+small_object_center = (150, 425)
+large_object_center = (450, 425)
 
 # 3. Define CPDs for input nodes (uniform for now)
 cpd_gaze = TabularCPD('GazeDirection', 2, [[0.5], [0.5]], state_names=state_names)
@@ -174,10 +175,8 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                     grip_shape = "uncertain"
 
                 # Display info
-                cv2.putText(image, f"Trgt Obj: {grip_shape}", (10, 40),
+                cv2.putText(image, f"GripShape: {grip_shape}", (10, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.putText(image, f"Avg Dist: {avg_dist:.3f}", (10, 80),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
                 
                 # Detect hand location
                 # Use average of some palm landmarks as hand center
@@ -192,7 +191,6 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
 
                 dist_small = euclidean_dist(hand_center, small_object_center)
                 dist_large = euclidean_dist(hand_center, large_object_center)
-                print(dist_small, dist_large)
 
                 # Decide the hand proximity
                 hand_proximity = "near_small" if dist_small < dist_large else "near_large"
@@ -200,7 +198,9 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                 hand_closeness = "close" if dist_small < CLOSENESS_THRESHOLD or dist_large < CLOSENESS_THRESHOLD else "far"
 
                 # Display result
-                cv2.putText(image, f"Target: {hand_proximity}", (10, 120), 
+                cv2.putText(image, f"HandProximity: {hand_proximity}", (10, 80), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(image, f"HandCloseness: {hand_closeness}", (10, 120), 
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         faces = detector(gray)
@@ -211,7 +211,8 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
             gaze_ratio_right_eye = get_gaze_ratio(gray, [36, 37, 38, 39, 40, 41], landmarks)
             gaze_ratio_left_eye = get_gaze_ratio(gray, [42, 43, 44, 45, 46, 47], landmarks)
             gaze_ratio = (gaze_ratio_right_eye + gaze_ratio_left_eye) / 2
-            
+            # cv2.putText(image, f"Ratio = {gaze_ratio}", (300,50), 
+            #                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             if gaze_ratio <= LOW_CENTER_THRESHOLD:
                 gaze_direction = "towards_large"
                 color_frame[:] = (0, 0, 255) # if the frame is red then we are looking right
@@ -228,14 +229,16 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                 'GazeDirection': gaze_direction if gaze_direction != "uncertain" else "towards_small",
                 'GripShape': grip_shape if grip_shape != "uncertain" else "small",
                 'HandProximity': hand_proximity if hand_proximity != "uncertain" else "near_small",
-                'Hand3DCloseness': hand_closeness if hand_closeness != "uncertain" else "close"
+                'Hand3DCloseness': hand_closeness if hand_closeness != "uncertain" else "far"
             }
         )
-        cv2.putText(image, f"P = {query.values[0]}", (200, 250), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(image, f"P = {query.values[1]}", (400, 250), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(image, f"P = {query.values[0]}", small_object_center, 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(image, f"P = {query.values[1]}", large_object_center, 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+        cv2.circle(image, small_object_center, radius=5, color=(0, 0, 0), thickness=-1)
+        cv2.circle(image, large_object_center, radius=5, color=(0, 0, 0), thickness=-1)
         cv2.imshow("Hand Tracking", image)
         cv2.imshow('Color Frame', color_frame)
 
