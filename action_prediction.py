@@ -15,6 +15,7 @@ LARGE_GRIP_THRESHOLD = 0.2
 GAZE_THRESHOLD = 70 # Threshold to detect the gaze (related to the eye color)
 LOW_CENTER_THRESHOLD = 0.5 # Threshold of the ratio to detect if we are looking right or left
 HIGH_CENTER_THRESHOLD = 1.5 # Threshold of the ratio to detect if we are looking right or left
+CLOSENESS_THRESHOLD = 50 # Threshold for the hand_closeness node to consider it close or far
 # Hardcoded object centers (in pixel coordinates)
 # Example: (x, y)
 small_object_center = (200, 300)
@@ -191,9 +192,12 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
 
                 dist_small = euclidean_dist(hand_center, small_object_center)
                 dist_large = euclidean_dist(hand_center, large_object_center)
+                print(dist_small, dist_large)
 
                 # Decide the hand proximity
                 hand_proximity = "near_small" if dist_small < dist_large else "near_large"
+                # Decide the hand closeness
+                hand_closeness = "close" if dist_small < CLOSENESS_THRESHOLD or dist_large < CLOSENESS_THRESHOLD else "far"
 
                 # Display result
                 cv2.putText(image, f"Target: {hand_proximity}", (10, 120), 
